@@ -1,0 +1,27 @@
+fib:
+    arg num x # x is a stack adress but abstracted away.
+    push 2
+    push x 
+    cmp_greater 
+    cjmp fib_end0
+    fib_then0:
+    push 1
+    jmp fib_end1
+    fib_end0:
+    push x 
+    push 1
+    sub
+    call fib
+    push x
+    push 2
+    sub
+    call fib
+    add
+    fib_end1:
+    ret
+
+main:
+    push 5
+    call fib
+
+# il is basically a stack based assembly, a simpler assembly with no registers and no variables just the stack.

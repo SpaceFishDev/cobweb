@@ -1,0 +1,14 @@
+/home/liamgatter/dev/C#/cobweb/bin/Release/net8.0/cobweb
+/home/liamgatter/dev/C#/cobweb/bin/Release/net8.0/cobweb.deps.json
+/home/liamgatter/dev/C#/cobweb/bin/Release/net8.0/cobweb.runtimeconfig.json
+/home/liamgatter/dev/C#/cobweb/bin/Release/net8.0/cobweb.dll
+/home/liamgatter/dev/C#/cobweb/bin/Release/net8.0/cobweb.pdb
+/home/liamgatter/dev/C#/cobweb/obj/Release/net8.0/cobweb.GeneratedMSBuildEditorConfig.editorconfig
+/home/liamgatter/dev/C#/cobweb/obj/Release/net8.0/cobweb.AssemblyInfoInputs.cache
+/home/liamgatter/dev/C#/cobweb/obj/Release/net8.0/cobweb.AssemblyInfo.cs
+/home/liamgatter/dev/C#/cobweb/obj/Release/net8.0/cobweb.csproj.CoreCompileInputs.cache
+/home/liamgatter/dev/C#/cobweb/obj/Release/net8.0/cobweb.dll
+/home/liamgatter/dev/C#/cobweb/obj/Release/net8.0/refint/cobweb.dll
+/home/liamgatter/dev/C#/cobweb/obj/Release/net8.0/cobweb.pdb
+/home/liamgatter/dev/C#/cobweb/obj/Release/net8.0/cobweb.genruntimeconfig.cache
+/home/liamgatter/dev/C#/cobweb/obj/Release/net8.0/ref/cobweb.dll
