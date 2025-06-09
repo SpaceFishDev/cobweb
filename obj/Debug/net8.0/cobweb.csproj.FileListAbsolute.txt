@@ -12,3 +12,4 @@
 /home/liamgatter/dev/C#/cobweb/obj/Debug/net8.0/cobweb.pdb
 /home/liamgatter/dev/C#/cobweb/obj/Debug/net8.0/cobweb.genruntimeconfig.cache
 /home/liamgatter/dev/C#/cobweb/obj/Debug/net8.0/ref/cobweb.dll
+/home/liamgatter/dev/C#/cobweb/obj/Debug/net8.0/cobweb.sourcelink.json
