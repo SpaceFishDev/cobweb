@@ -268,10 +268,23 @@ namespace Cobweb{
                                 ++Position;
                             }
                             string arg = "";
-                            while (!char.IsWhiteSpace(Current))
+                            if (Current == '"')
                             {
                                 arg += Current;
-                                ++Position;    
+                                ++Position;
+                                while (Current != '"')
+                                {
+                                    arg += Current;
+                                    ++Position;
+                                }
+                            }
+                            else
+                            {
+                                while (!char.IsWhiteSpace(Current))
+                                {
+                                    arg += Current;
+                                    ++Position;
+                                }
                             }
                             InstructionArgument argument = new();
                             if (char.IsNumber(arg[0]))
@@ -294,6 +307,7 @@ namespace Cobweb{
                             }
                             if (arg[0] == '"')
                             {
+                                ++Position;
                                 argument.Type = ArgType.STRING;  
                             }
                             argument.Value = arg;

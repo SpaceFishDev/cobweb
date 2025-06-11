@@ -1,5 +1,4 @@
 fact:
-
 arg Number x
 fact_if_0:
 push x
