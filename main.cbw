@@ -1,1 +1,2 @@
-f main => print_string("Hello, World")
+f fact x => if x < 2 then x else fact(x-1)*x
+f main => print_num(fact(5))

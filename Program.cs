@@ -40,7 +40,7 @@ namespace Cobweb{
         string data_section = "section .data\n";
         string text_section = "section .text\nglobal main\n";
         List<string> ProgramStrings = new();
-        Dictionary<int, float> ProgramDoubles = new();
+        Dictionary<int, double> ProgramDoubles = new();
         public void FindAllStrings()
         {
             foreach (Instruction ins in Instructions)
@@ -63,7 +63,7 @@ namespace Cobweb{
                 {
                     if (ins.Arguments[0].Type == ArgType.NUMBER)
                     {
-                        ProgramDoubles.Add(p, float.Parse(ins.Arguments[0].Value));
+                        ProgramDoubles.Add(p, double.Parse(ins.Arguments[0].Value, System.Globalization.CultureInfo.InvariantCulture));
                     }
                }
                 ++p;
@@ -83,7 +83,14 @@ namespace Cobweb{
             var keys = ProgramDoubles.Keys.ToList();
             foreach (var key in keys)
             {
-                data_section += $"float_{key}: dq {ProgramDoubles[key]}\n";
+                if (ProgramDoubles[key] % 1 == 0)
+                {
+                    data_section += $"float_{key}: dq {ProgramDoubles[key]}.0\n";
+                }
+                else
+                {
+                    data_section += $"float_{key}: dq {ProgramDoubles[key]}\n";
+                }
             }
         }
         public string CurrentFunction = "";
@@ -150,23 +157,23 @@ namespace Cobweb{
                     break;
                 case InstructionType.SUB:
                     {
-                        result = "movsd xmm0, qword [rsp]\nadd rsp, 8\nmovsd xmm1, qword [rsp]\nsubsd xmm1, xmm0\nsub rsp, 8\nmovsd [rsp], xmm0";
+                        result = "movsd xmm0, qword [rsp]\nadd rsp, 8\nmovsd xmm1, qword [rsp]\nadd rsp, 8\nsubsd xmm1, xmm0\nsub rsp, 8\nmovsd [rsp], xmm1";
                         ++Position;
                     } break;
                 case InstructionType.ADD:
                     {
-                        result = "movsd xmm0, qword [rsp]\nadd rsp, 8\nmovsd xmm1, qword [rsp]\naddsd xmm1, xmm0\nsub rsp, 8\nmovsd [rsp], xmm0";
+                        result = "movsd xmm0, qword [rsp]\nadd rsp, 8\nmovsd xmm1, qword [rsp]\nadd rsp, 8\naddsd xmm1, xmm0\nsub rsp, 8\nmovsd [rsp], xmm1";
                         ++Position;
                     } break;
                 case InstructionType.MUL:
                     {
-                        result = "movsd xmm0, qword [rsp]\nadd rsp, 8\nmovsd xmm1, qword [rsp]\nmulsd xmm1, xmm0\nsub rsp, 8\nmovsd [rsp], xmm0";
+                        result = "movsd xmm0, qword [rsp]\nadd rsp, 8\nmovsd xmm1, qword [rsp]\nadd rsp, 8\nmulsd xmm1, xmm0\nsub rsp, 8\nmovsd [rsp], xmm1";
                         ++Position;
                         
                     } break;
                 case InstructionType.DIV:
                     {
-                        result = "movsd xmm0, qword [rsp]\nadd rsp, 8\nmovsd xmm1, qword [rsp]\ndivsd xmm1, xmm0\nsub rsp, 8\nmovsd [rsp], xmm0";
+                        result = "movsd xmm0, qword [rsp]\nadd rsp, 8\nmovsd xmm1, qword [rsp]\nadd rsp, 8\ndivsd xmm1, xmm0\nsub rsp, 8\nmovsd [rsp], xmm1";
                         ++Position;
                     } break;
                 case InstructionType.PUSH:
@@ -238,7 +245,25 @@ namespace Cobweb{
                     }break;
                 case InstructionType.CALL:
                     {
-                        result = $"call {Current.Arguments[0].Value}";
+                        int argSize = 0;
+                        foreach (var f in Functions)
+                        {
+                            if (f.Item1 == Current.Arguments[0].Value)
+                            {
+                                var val = f.Item2.Values.ToList().Count;
+                                argSize = val * 8;
+                            }
+                        }
+                        if (Current.Arguments[0].Value == "print_num")
+                        {
+                            argSize = 8;
+                        }
+                        if (Current.Arguments[0].Value == "print_string")
+                        {
+                            argSize = 8;   
+                        }
+                        result = $"call {Current.Arguments[0].Value}\nadd rsp, {argSize}\nsub rsp, 8\nmovsd [rsp], xmm0\n";
+
                         ++Position;
                     } break;
                 case InstructionType.RETURN:
@@ -249,7 +274,7 @@ namespace Cobweb{
                             ++Position;
                             return result;
                         }
-                        result = $"mov rsp, rbp\npop rbp\nret";
+                        result = $"movsd xmm0, [rsp]\nmov rsp, rbp\npop rbp\nret";
                         ++Position;
                     } break;
                 case InstructionType.JMP:
@@ -289,6 +314,8 @@ namespace Cobweb{
 
         public static void Main(string[] Args)
         {
+            System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+            System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
             int i = 0;
             foreach (var arg in Args)
             {
