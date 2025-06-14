@@ -61,7 +61,7 @@ namespace Cobweb{
                     {
                         if (child.Children[0].Type == NodeType.index)
                         {
-                            return VariableType.List;
+                            return VariableType.Number;
                         }   
                     }
                     switch (child.NodeToken.Type)

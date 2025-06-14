@@ -203,11 +203,29 @@ namespace Cobweb{
                     }
                 case NodeType.literal:
                     {
+                        if (t.Children.Count > 0)
+                        {
+                            if (t.Children[0].Type == NodeType.index)
+                            {
+                                return $"idx {t.Children[0].NodeToken.Data}\n";
+                            }
+                        }
                         if (t.NodeToken.Type == TokenType.STRING)
                         {
                             return $"push \"{t.NodeToken.Data}\"\n";
                         }
                         return $"push {t.NodeToken.Data}\n";
+                    }
+                case NodeType.list_initializer:
+                    {
+                        string res = "lsi\n";
+                        foreach (var c in t.Children)
+                        {
+                            res += GenIl(c);
+                            res += "expand\n";
+                            res += "append\n";
+                        }
+                        return res;
                     }
                 case NodeType.binexpr:
                     {

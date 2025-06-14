@@ -315,6 +315,66 @@ namespace Cobweb{
                             instruction.Type = InstructionType.PUSH;
                             return instruction;
                         } 
+                        case "append":
+                        {
+                            ++Position;
+                            Instruction inst = new();
+                            inst.Arguments = new();
+                            inst.Type = InstructionType.LIST_APPEND;
+                            return inst;
+                        }
+                        case "expand":
+                        {
+                            ++Position;
+                            Instruction inst = new();
+                            inst.Arguments = new();
+                            inst.Type = InstructionType.LIST_EXPAND;
+                            return inst;
+                        }
+                        case "lsi":
+                        {
+                            ++Position;
+                            Instruction inst = new();
+                            inst.Arguments = new();
+                            inst.Type = InstructionType.LIST_INIT;
+                            return inst;
+                        }
+                        case "idx":
+                        {
+                            ++Position;
+                            Instruction inst = new();
+                            string idx = "";
+                            while (char.IsWhiteSpace(Current))
+                            {
+                                ++Position;
+                            }
+                            if (char.IsNumber(Current))
+                            {
+                                while (char.IsNumber(Current))
+                                {
+                                    idx += Current;
+                                    ++Position;
+                                }
+                                InstructionArgument argument = new();
+                                argument.Type = ArgType.NUMBER;
+                                argument.Value = idx;
+                                inst.Arguments.Add(argument);
+                                inst.Type = InstructionType.INDEX;
+                                ++Position;
+                                return inst;
+                            }
+                            while (!char.IsWhiteSpace(Current))
+                            {
+                                idx += Current;
+                                ++Position;
+                            }
+                            InstructionArgument arg = new();
+                            arg.Type = ArgType.VARIABLE;
+                            inst.Arguments.Add(arg);
+                            inst.Type = InstructionType.INDEX;
+                            ++Position;
+                            return inst;
+                        }
                 }
                 if (ins[ins.Length - 1] == ':')
                 {

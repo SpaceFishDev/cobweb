@@ -19,5 +19,9 @@ namespace Cobweb{
         CONDITIONAL_JUMP,
         ARG_DECL,
         RETURN,
+        LIST_INIT,
+        LIST_APPEND,
+        LIST_EXPAND,
+        INDEX,
     }
 }

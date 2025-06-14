@@ -1,2 +1,1 @@
-f fact x => if x < 2 then x else fact(x-1)*x
-f main => print_num(fact(5))
+f main => [1 2]

@@ -23,3 +23,15 @@ main:
 push 5
 call fact
 ret
+
+list:
+arg Number x
+lsi
+// stack is [pointer to list, size of list]
+push x
+// stack is now [pointer to list, size of list, x]
+expand
+// stack is now [x, pointer to list, size of list]
+append 
+// stack becomes [pointer to list, size of list]
+
