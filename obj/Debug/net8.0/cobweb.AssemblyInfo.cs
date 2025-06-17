@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("cobweb")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+74daa2ff8ecb547e2da461a718c0b226a2c6b6d4")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3e59c17001e62706d89b24a65737b5b7f8ff9bba")]
 [assembly: System.Reflection.AssemblyProductAttribute("cobweb")]
 [assembly: System.Reflection.AssemblyTitleAttribute("cobweb")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -1,1 +1,2 @@
-f main => [1 2]
+f add x y => x + y
+f main => add(20 6)

@@ -1,4 +1,5 @@
-namespace Cobweb{
+namespace Cobweb
+{
     public class Preprocesser
     {
         public List<Function> Functions;
@@ -26,7 +27,7 @@ namespace Cobweb{
                     f.expression = child.Children[0];
                     f.Args = funcVars;
                     Functions.Add(f);
-                    
+
                 }
             }
         }
@@ -42,10 +43,10 @@ namespace Cobweb{
                         {
                             if (f.Type != VariableType.NoType)
                             {
-                                return f.Type;    
-                            }    
+                                return f.Type;
+                            }
                         }
-                    }     
+                    }
                 }
                 if (child.Type == NodeType._if)
                 {
@@ -53,7 +54,7 @@ namespace Cobweb{
                 }
                 if (child.Type == NodeType.list_initializer)
                 {
-                    return VariableType.List;    
+                    return VariableType.List;
                 }
                 if (child.Type == NodeType.literal)
                 {
@@ -62,7 +63,7 @@ namespace Cobweb{
                         if (child.Children[0].Type == NodeType.index)
                         {
                             return VariableType.Number;
-                        }   
+                        }
                     }
                     switch (child.NodeToken.Type)
                     {
@@ -131,13 +132,53 @@ namespace Cobweb{
                 WalkTreeForTypes(f, c);
             }
         }
+        private void SecondWalk(Function f, Node n)
+        {
+            if (n.Type == NodeType.literal && n.Children.Count == 0)
+            {
+                var type = VariableType.NoType;
+                foreach (var v in f.Args)
+                {
+                    if (n.NodeToken.Data == v.Name)
+                    {
+                        type = v.Type;
+                    }
+                }
+                int idx = 0;
+                foreach (var func in Functions)
+                {
+                    if (func.Name == f.Name)
+                    {
+                        break;
+                    }
+                    ++idx;
+                }
+                var function = Functions[idx];
+                if (type != VariableType.NoType)
+                {
+                    function.Type = type;
+                }
+                // if (function.Type == VariableType.NoType)
+                // {
+                    // function.Type = VariableType.Number; // Gonna assume number probably dumb but who cares.
+                // }
+                Functions[idx] = function;
+            }
+            else
+            {
+                foreach (var c in n.Children)
+                {
+                    SecondWalk(f, c);
+                }
+            }
+        }
         private void SortOutTypes(Function f)
         {
             WalkTreeForTypes(f, f.expression);
         }
         public void FindTypes()
         {
-            for(int i = 0; i < Functions.Count; ++i)
+            for (int i = 0; i < Functions.Count; ++i)
             {
                 var func = Functions[i];
                 SortOutTypes(func);
@@ -151,6 +192,7 @@ namespace Cobweb{
                 Function f = Functions[idx];
                 f.Type = GetExprType(f.expression);
                 Functions[idx] = f;
+                SecondWalk(f, f.expression);
             }
         }
     }
