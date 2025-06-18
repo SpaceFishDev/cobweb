@@ -272,6 +272,11 @@ namespace Cobweb{
                     {
                         return CompileFunctionCall(current);
                     }
+                case InstructionType.CONDITIONAL_JUMP:
+                    {
+                        Instruction prev = Instructions[Pos - 1];
+                        return "";
+                    }
                 case InstructionType.RETURN:
                     {
                         string res = "";
