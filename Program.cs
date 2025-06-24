@@ -51,6 +51,21 @@ namespace Cobweb{
                 return Instructions[Pos];
             }
         }
+        public double StackTop
+        {
+            get
+            {
+                byte[] bytes = new byte[sizeof(double)];
+                int n = 0;
+                int top = stackPointer + sizeof(double); 
+                for (int i = stackPointer; i < top; ++i)
+                {
+                    bytes[n] = Stack[i];
+                    ++n;
+                }
+                return BitConverter.ToDouble(bytes);
+            }
+        }
         int stackPointer = 1024 * 1024;
         public void PushBytes(byte[] bytes)
         {
@@ -97,9 +112,14 @@ namespace Cobweb{
                             if (f.Name == CurrentFunction)
                             {
                                 func = f;
+                                break;
                             }
                         }
                         Variable variable = new();
+                        if (func.Args == null)
+                        {
+                            func.Args = new();
+                        }
                         foreach (var v in func.Args)
                         {
                             if (v.Name == Current.Arguments[0].Value)
@@ -140,12 +160,17 @@ namespace Cobweb{
             double value = 0;
             byte[] bytes = new byte[sizeof(double)];
             stackPointer += sizeof(double);
+            if (stackPointer > Stack.Count())
+            {
+                return 0;
+            }
             int i = stackPointer - sizeof(double);
             int n = 0;
-            for (; i < stackPointer; ++i)
+            while (i < stackPointer)
             {
                 bytes[n] = Stack[i];
                 ++n;
+                ++i;
             }
             value = BitConverter.ToDouble(bytes);
             return value;   
@@ -172,7 +197,7 @@ namespace Cobweb{
             int[] arrI = new int[ArgsI.Count];
             ArgsD.CopyTo(arrD);
             ArgsI.CopyTo(arrI);
-            CallStack.Add((arrI.ToList(), arrD.ToList(), pos+1, CurrentFunction));
+            CallStack.Add((arrI.ToList(), arrD.ToList(), pos, CurrentFunction));
             Function func = new();
             foreach (Function f in Functions)
             {
@@ -181,6 +206,11 @@ namespace Cobweb{
                     func = f;
                 }
             }
+            if (func.Name == null)
+            {
+                func.Name = "";
+            }
+            CurrentFunction = func.Name;
             pos = 0;
             foreach (var ins in Instructions)
             {
@@ -201,29 +231,31 @@ namespace Cobweb{
                 func.Args = new();
             }
             foreach (var v in func.Args)
+            {
+                if (v.Type == VariableType.Number)
                 {
-                    if (v.Type == VariableType.Number)
-                    {
-                        double d = PopNum();
-                        ArgsD.Add(d);
-                        ++idxD;
-                    }
-                    if (v.Type == VariableType.Str)
-                    {
-                        int i = PopI();
-                        ArgsI.Add(i);
-                        ++idxI;
-                    }
-                    if (v.Type == VariableType.List)
-                    {
-                        int i = PopI();
-                        ArgsI[idxI] = i;
-                        ++idxI;
-                        i = PopI();
-                        ArgsI[idxI] = i;
-                        ++idxI;
-                    }
+                    double d = PopNum();
+                    ArgsD.Add(d);
+                    ++idxD;
                 }
+                if (v.Type == VariableType.Str)
+                {
+                    int i = PopI();
+                    ArgsI.Add(i);
+                    ++idxI;
+                }
+                if (v.Type == VariableType.List)
+                {
+                    int i = PopI();
+                    ArgsI[idxI] = i;
+                    ++idxI;
+                    i = PopI();
+                    ArgsI[idxI] = i;
+                    ++idxI;
+                }
+            }
+            ArgsD.Reverse();
+            ArgsI.Reverse();
         }
         public void ReturnFromFunction()
         {
@@ -235,13 +267,13 @@ namespace Cobweb{
                     f = func;
                 }
             }
-            if (CallStack.Count == 0)
+            if (CallStack.Count == 1)
             {
                 Pos = Instructions.Count + 1;
                 return;
             }
-            CallStack.RemoveAt(CallStack.Count - 1);
             var call = CallStack[CallStack.Count - 1];
+            CallStack.RemoveAt(CallStack.Count - 1);
             CurrentFunction = call.Name;
             ArgsD = call.ArgsD;
             ArgsI = call.ArgsI;
@@ -271,42 +303,116 @@ namespace Cobweb{
                 ++Pos;
             }
             CurrentFunction = "main";
+            CallStack.Add((new(), new(), 1, "main"));
             while (Pos < Instructions.Count)
             {
+                if (Pos > 0)
+                {
+                    if (Instructions[Pos - 1].Type == InstructionType.CALL)
+                    {
+                        Function func = new();
+                        foreach (var f in Functions)
+                        {
+                            if (f.Name == Instructions[Pos - 1].Arguments[0].Value)
+                            {
+                                func = f;
+                            }
+                        }
+                        if (func.Type == VariableType.Number)
+                        {
+                            PushBytes(BitConverter.GetBytes(Dreturn));
+                        }
+                        else if (func.Type == VariableType.Str)
+                        {
+                            PushBytes(BitConverter.GetBytes(Ireturn));
+                        }
+                    }
+                }
                 switch (Current.Type)
                 {
+                    case InstructionType.CMP_EQ:
+                        {
+                            double b = PopNum();
+                            double a = PopNum();
+                            double res = (double)Convert.ToInt32(a == b);
+                            PushBytes(BitConverter.GetBytes(res));
+                        } break;
+                    case InstructionType.CMP_MORE:
+                        {
+                            double b = PopNum();
+                            double a = PopNum();
+                            double res = (double)Convert.ToInt32(a > b);
+                            PushBytes(BitConverter.GetBytes(res));
+                        } break;
+                    case InstructionType.CMP_LESS:
+                        {
+                            double b = PopNum();
+                            double a = PopNum();
+                            double res = (double)Convert.ToInt32(a < b);
+                            PushBytes(BitConverter.GetBytes(res));
+                        } break;
+                    case InstructionType.CONDITIONAL_JUMP:
+                        {
+                            double d = PopNum();
+                            if (d > 0)
+                            {
+                                int pos = 0;
+                                foreach (Instruction ins in Instructions)
+                                {
+                                    if (ins.Type == InstructionType.LABEL && ins.Arguments[0].Value == Current.Arguments[0].Value)
+                                    {
+                                        break;
+                                    }
+                                    ++pos;
+                                }
+                                Pos = pos;
+                            }
+                        } break;
+                    case InstructionType.JMP:
+                        {
+                            int pos = 0;
+                            foreach (Instruction ins in Instructions)
+                            {
+                                if (ins.Type == InstructionType.LABEL && ins.Arguments[0].Value == Current.Arguments[0].Value)
+                                {
+                                    break;
+                                }
+                                ++pos;
+                            }
+                            Pos = pos;
+                        } break;
                     case InstructionType.PUSH:
                     {
                             Push();
                     } break;
                     case InstructionType.ADD:
                         {
-                            double a = PopNum();
                             double b = PopNum();
+                            double a = PopNum();
                             double res = a + b;
                             byte[] bytes = BitConverter.GetBytes(res);
                             PushBytes(bytes);
                         }   break;
                     case InstructionType.SUB:
                         {
-                            double a = PopNum();
                             double b = PopNum();
+                            double a = PopNum();
                             double res = a - b;
                             byte[] bytes = BitConverter.GetBytes(res);
                             PushBytes(bytes);
                         }   break;
                     case InstructionType.MUL:
                         {
-                            double a = PopNum();
                             double b = PopNum();
+                            double a = PopNum();
                             double res = a * b;
                             byte[] bytes = BitConverter.GetBytes(res);
                             PushBytes(bytes);
                         }   break;
                     case InstructionType.DIV:
                         {
-                            double a = PopNum();
                             double b = PopNum();
+                            double a = PopNum();
                             double res = a / b;
                             byte[] bytes = BitConverter.GetBytes(res);
                             PushBytes(bytes);

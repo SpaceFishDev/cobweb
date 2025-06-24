@@ -1,2 +1,2 @@
-f add x y => x  +  y
-f main => add(5 2)
+f fib x => if x < 2 then x else x*fib(x-1) 
+f main => fib(5) 
