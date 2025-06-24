@@ -2,365 +2,335 @@
 using System.Reflection.Emit;
 using System.Diagnostics;
 namespace Cobweb{
-    public class ArgumentDefinition
+    public class Interpreter
     {
-        public string functionName = "";
-        public List<(string name, string type)> Arguments = new();
-    }
-    public class Compiler
-    {
-        public string CompiledSource = "";
         public List<Instruction> Instructions;
-        public List<Function> IlFunctions;
-        public List<(string, int)> ProgramStrings;
-        public List<(double, int)> ProgramDoubles;
-        public string CurrentFunction;
-        List<ArgumentDefinition> ArgumentDefinitions;
-        public string DataSection = "section .data\n";
-        public string TextSection = "section .text\nglobal main\n";
-        public Compiler(List<Instruction> instructions, List<Function> functions)
+        public List<Function> Functions;
+        public Interpreter(List<Instruction> ins, List<Function> funs)
         {
-            Instructions = instructions;
-            IlFunctions = functions;
-            ArgumentDefinitions = new();
+            Instructions = ins;
+            Functions = funs;
+            Memory = new byte[1024 * 1024];
+            Stack = new byte[1024 * 1024];
+            ArgsD = new();
+            ArgsI = new();
             ProgramStrings = new();
-            ProgramDoubles = new();
-            CurrentFunction = "";
-            GetProgramDoubles();
-            GetProgramStrings();
-            BuildTables();
-            GetArguments();
-            while (Pos < Instructions.Count)
+            CallStack = new();
+            int mempos = 0;
+            foreach (var i in ins)
             {
-                TextSection += Compile(Instructions[Pos]);
-                ++Pos;
-            }
-            CompiledSource = DataSection + "\n" + TextSection;
-        }
-        public void GetArguments()
-        {
-            string func = "";
-            ArgumentDefinition curr = new();
-            foreach (Instruction ins in Instructions)
-            {
-                if (ins.Type == InstructionType.LABEL)
+                if (i.Type == InstructionType.PUSH && i.Arguments[0].Type == ArgType.STRING)
                 {
-                    foreach (Function f in IlFunctions)
+                    int pos = mempos;
+                    foreach (char c in i.Arguments[0].Value)
                     {
-                        if (f.Name == ins.Arguments[0].Value)
-                        {
-                            if (curr.functionName != "")
-                            {
-                                ArgumentDefinitions.Add(curr);
-                            }
-                            func = f.Name;
-                            curr = new();
-                            curr.Arguments = new();
-                            curr.functionName = func;
-                            break;
-                        }
+                        byte b = (byte)c;
+                        Memory[mempos] = b;
+                        ++mempos;
                     }
-                }
-                if (ins.Type == InstructionType.ARG_DECL)
-                {
-                    curr.Arguments.Add((ins.Arguments[1].Value, ins.Arguments[0].Value));
-                }
+                    mempos++;
+                    ProgramStrings.Add((i.Arguments[0].Value, pos));
+                } 
+            }
+            CurrentFunction = "";
+        }
+        public string CurrentFunction;
+        public List<double> ArgsD;
+        public List<int> ArgsI; // for pointers 
+        public List<(List<int> ArgsI, List<double> ArgsD, int Pos, string Name)> CallStack;
+        public byte[] Memory;
+        public byte[] Stack;
+        public int Pos;
+        public double Dreturn;
+        public int Ireturn;
+        public List<(string, int)> ProgramStrings;
+        public Instruction Current
+        {
+            get
+            {
+                return Instructions[Pos];
             }
         }
-        int Pos = 0;
-        string[] elf64Args = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" };
-        string[] elf64DoubleArgs = { "xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7"}; 
-        public string CompilePush(Instruction current)
+        int stackPointer = 1024 * 1024;
+        public void PushBytes(byte[] bytes)
         {
-            switch (current.Arguments[0].Type)
+            stackPointer -= bytes.Length;
+            int i = 0;
+            foreach (byte b in bytes)
+            {
+                Stack[stackPointer + i] = b;
+                ++i;
+            }   
+        }
+        public void Push()
+        {
+            switch (Current.Arguments[0].Type)
             {
                 case ArgType.NUMBER:
-                    {
-                        return $"movsd xmm8, qword [double_{Pos}]\nsub rsp, 8\nmovsd [rsp], xmm8\n";
-                    }
+                {
+                        double val = double.Parse(Current.Arguments[0].Value);
+                        var bytes = BitConverter.GetBytes(val);
+                        PushBytes(bytes);
+                } break;
                 case ArgType.STRING:
                     {
-                        return $"mov r12, qword string_{Pos}\npush qword r12\n";
-                    }
-                case ArgType.VARIABLE:
-                    {
-                        ArgumentDefinition def = new();
-                        foreach (var argdef in ArgumentDefinitions)
+                        stackPointer -= sizeof(int);
+                        int val = 0;
+                        foreach (var s in ProgramStrings)
                         {
-                            if (argdef.functionName == CurrentFunction)
+                            if (s.Item1 == Current.Arguments[0].Value)
                             {
-                                def = argdef;
-                            } 
-                        }
-                        int regidx = 0;
-                        int doubleidx = 0;
-                        (string name, string type) Var = ("","");
-                        foreach (var v in def.Arguments)
-                        {
-                            if (v.name == current.Arguments[0].Value)
-                            {
-                                Var = v;
+                                val = s.Item2;
                                 break;
                             }
-                            if (v.type == "List")
-                            {
-                                // lists have 2 elements which are args, ptr and size
-                                regidx += 2;
-                            }
-                            else if (v.type == "Str")
-                            {
-                                regidx++;
-                            }
-                            else if (v.type == "Number") 
-                            {
-                                doubleidx++;
-                            }
                         }
-                        switch (Var.type)
+                        var bytes = BitConverter.GetBytes(val);
+                        PushBytes(bytes);
+                    } break;
+                case ArgType.VARIABLE:
+                    {
+                        int Didx = 0;
+                        int Iidx = 0;
+                        Function func = new();
+                        foreach (var f in Functions)
                         {
-                            case "Str":
-                                {
-                                    string result = $"mov r12, {elf64Args[regidx]}\nsub rsp, 8\nmov [rsp], r12\n";
-                                    return result;
-                                }
-                            case "List":
-                                {
-                                    return $"mov r12, {elf64Args[regidx]}\nmov r13, {elf64Args[regidx + 1]}\nsub rsp, 8\nmov [rsp], r12\nsub rsp, 8\nmov [rsp], r13\n";
-                                } 
-                            case "Number":
-                                {
-                                    return $"movsd xmm8, {elf64DoubleArgs[doubleidx]}\nsub rsp, 8\nmovsd [rsp], xmm8\n";
-                                }
+                            if (f.Name == CurrentFunction)
+                            {
+                                func = f;
+                            }
                         }
-                    }
-                    break;
-            }
-            return "";
+                        Variable variable = new();
+                        foreach (var v in func.Args)
+                        {
+                            if (v.Name == Current.Arguments[0].Value)
+                            {
+                                variable = v;
+                                break;
+                            }
+                            if (v.Type == VariableType.Number)
+                            {
+                                ++Didx;
+                            }
+                            if (v.Type == VariableType.Str)
+                            {
+                                ++Iidx;   
+                            }
+                            if (v.Type == VariableType.List)
+                            {
+                                Iidx += 2;
+                            }
+                        }
+                        if (variable.Type == VariableType.Number)
+                        {
+                            double value = ArgsD[Didx];
+                            var bytes = BitConverter.GetBytes(value);
+                            PushBytes(bytes);
+                        }
+                        if (variable.Type == VariableType.Str)
+                        {
+                            int value = ArgsI[Iidx];
+                            var bytes = BitConverter.GetBytes(value);
+                            PushBytes(bytes);
+                        }
+                    } break;
+            } 
         }
-        public string CompileLabel(Instruction current)
+        public double PopNum()
         {
-            bool IsFunc = false;
-            foreach (var f in IlFunctions)
+            double value = 0;
+            byte[] bytes = new byte[sizeof(double)];
+            stackPointer += sizeof(double);
+            int i = stackPointer - sizeof(double);
+            int n = 0;
+            for (; i < stackPointer; ++i)
             {
-                if (f.Name == current.Arguments[0].Value)
-                {
-                    IsFunc = true;
-                }
+                bytes[n] = Stack[i];
+                ++n;
             }
-            if (IsFunc)
-            {
-                CurrentFunction = current.Arguments[0].Value;
-                if (CurrentFunction == "main")
-                {
-                    return $"main:\n";
-                }
-                return $"{current.Arguments[0].Value}:\npush rbp\nmov rbp, rsp\n";
-            }
-            return $"{current.Arguments[0].Value}:\n";
+            value = BitConverter.ToDouble(bytes);
+            return value;   
         }
-        public string CompileFunctionCall(Instruction current)
+        public int PopI()
         {
-            ArgumentDefinition func = new();
-            foreach (var f in ArgumentDefinitions)
+            int value = 0;
+            stackPointer += sizeof(int);
+            int i = stackPointer - sizeof(int);
+            int n = 0;
+            byte[] bytes = new byte[sizeof(int)];
+            for (; i < stackPointer; ++i)
             {
-                if (f.functionName == current.Arguments[0].Value)
+                bytes[n] = Stack[i];
+                ++n;
+            }
+            value = BitConverter.ToInt32(bytes);
+            return value;
+        }
+        public void CallFunction()
+        {
+            int pos = Pos;
+            double[] arrD = new double[ArgsD.Count];
+            int[] arrI = new int[ArgsI.Count];
+            ArgsD.CopyTo(arrD);
+            ArgsI.CopyTo(arrI);
+            CallStack.Add((arrI.ToList(), arrD.ToList(), pos+1, CurrentFunction));
+            Function func = new();
+            foreach (Function f in Functions)
+            {
+                if (f.Name == Current.Arguments[0].Value)
                 {
                     func = f;
                 }
             }
-            int argRNum = 0;
-            int argDNum = 0;
-            foreach (var v in func.Arguments)
+            pos = 0;
+            foreach (var ins in Instructions)
             {
-                if (v.type == "Number")
+                if (ins.Type == InstructionType.LABEL)
                 {
-                    argDNum++;
-                }
-                if (v.type == "Str")
-                {
-                    argRNum++;
-                }
-                if (v.type == "List")
-                {
-                    argRNum += 2;
-                }
-            }
-            string res = "";
-            for (int i = 0; i < argRNum; ++i)
-            {
-                res += $"push qword {elf64Args[i]}\n";
-            }
-            for (int i = 0; i < argDNum; ++i)
-            {
-                res += $"movsd xmm8, {elf64DoubleArgs[i]}\nsub rsp, 8\nmovsd [rsp], xmm8\n";
-            }
-            int stackOff = argRNum * 8 + argDNum * 8;
-            for (int i = 0; i < argRNum; ++i)
-            {
-                res += $"mov {elf64Args[i]}, qword [rsp+{stackOff + (i*8)}]\n";
-            }
-            for (int i = 0; i < argDNum; ++i)
-            {
-                res += $"movsd {elf64DoubleArgs[i]}, qword [rsp+{stackOff + (i*8)}]\n";
-            }
-            res += $"call {current.Arguments[0].Value}\n";
-            for (int i = argDNum; i > 0; --i)
-            {
-                if (elf64DoubleArgs[i] == "xmm0")
-                {
-                    res += "movsd xmm9, xmm0\n";
-                }
-                res += $"movsd {elf64DoubleArgs[i]}, qword [rsp]\nadd rsp, 8\n";
-            }
-            for (int i = argRNum; i > 0; --i)
-            {
-                res += $"mov {elf64Args[i]}, qword [rsp]\nadd rsp, 8\n";
-            }
-            res += $"add rsp, {argRNum*8+argDNum*8}\n";
-            Function function = new();
-            foreach (var f in IlFunctions)
-            {
-                if (f.Name == func.functionName)
-                {
-                    function = f;
-                }
-            }
-            if (function.Type == VariableType.Number)
-            {
-                res += "sub rsp, 8\nmovsd [rsp], xmm9\n";
-            }
-            else if (function.Type == VariableType.Str)
-            {
-                res += "sub rsp, 8\nmov [rsp], rax\n";
-            }
-            else if (function.Type == VariableType.List)
-            {
-                res += "sub rsp, 8\nmov [rsp], rax\nsub rsp, 8\nmov [rsp], rbx\n";
-            }
-            
-            return res;
-        }
-        public string Compile(Instruction current)
-        {
-            switch (current.Type)
-            {
-                case InstructionType.PUSH:
+                    if (ins.Arguments[0].Value == func.Name)
                     {
-                        return CompilePush(current);
-                    }
-                case InstructionType.LABEL:
-                    {
-                        return CompileLabel(current);
-                    }
-                case InstructionType.ADD:
-                    {
-                        return $"movsd xmm8, qword [rsp]\nadd rsp, 8\nmovsd xmm9, qword [rsp]\nadd rsp, 8\naddsd xmm9, xmm8\nsub rsp, 8\nmovsd [rsp], xmm9\n";
-                    }
-                case InstructionType.SUB:
-                    {
-                        return $"movsd xmm8, qword [rsp]\nadd rsp, 8\nmovsd xmm9, qword [rsp]\nadd rsp, 8\nsubsd xmm9, xmm8\nsub rsp, 8\nmovsd [rsp], xmm9\n";
-                    }
-                case InstructionType.DIV:
-                    {
-                        return $"movsd xmm8, qword [rsp]\nadd rsp, 8\nmovsd xmm9, qword [rsp]\nadd rsp, 8\ndivsd xmm9, xmm8\nsub rsp, 8\nmovsd [rsp], xmm9\n";
-                    }
-                case InstructionType.MUL:
-                    {
-                        return $"movsd xmm8, qword [rsp]\nadd rsp, 8\nmovsd xmm9, qword [rsp]\nadd rsp, 8\nmulsd xmm9, xmm8\nsub rsp, 8\nmovsd [rsp], xmm9\n";
-                    }
-                case InstructionType.CALL:
-                    {
-                        return CompileFunctionCall(current);
-                    }
-                case InstructionType.CONDITIONAL_JUMP:
-                    {
-                        Instruction prev = Instructions[Pos - 1];
-                        return "";
-                    }
-                case InstructionType.RETURN:
-                    {
-                        string res = "";
-                        Function f = new();
-                        foreach (var func in IlFunctions)
-                        {
-                            if (func.Name == CurrentFunction)
-                            {
-                                f = func; 
-                            }
-                        }
-                        if (f.Type == VariableType.Number)
-                        {
-                            res += "movsd xmm0, qword [rsp]\nadd rsp, 8\n";
-                        }
-                        else if (f.Type == VariableType.Str)
-                        {
-                            res += "mov rax, qword [rsp]\nadd rsp, 8\n";
-                        }
-                        else if (f.Type == VariableType.List)
-                        {
-                            res += "mov rbx, [rsp]\nadd rsp, 8\nmov rax, [rsp]\nadd rsp,8\n";
-                        }
-                        if (f.Name == "main")
-                        {
-                            if (f.Type == VariableType.Number)
-                            {
-                                res += "cvttsd2si rax, xmm0\n"; 
-                            }
-                            res += "mov rdi, rax\nmov rax, 60\nsyscall\n";
-                            return res;
-                        }
-                        res += $"mov rsp, rbp\npop rbp\nret\n";
-                        return res;
-                    }
-                    
-            }
-            return "";
-        }
-        public void BuildTables()
-        {
-            foreach ((string str, int pos) str in ProgramStrings)
-            {
-                DataSection += $"string_{str.pos}: db \"{str.str}\",0\n";
-            }
-            foreach((double d, int pos) dbl in ProgramDoubles){
-                if(dbl.d % 1 == 0){
-                    DataSection += $"double_{dbl.pos}: dq {dbl.d}.0\n";
-                }else{
-                    DataSection += $"double_{dbl.pos}: dq {dbl.d}.0\n";
-                }
-            }
-        }
-        public void GetProgramStrings()
-        {
-            int pos = 0;
-            while (pos < Instructions.Count)
-            {
-                if (Instructions[pos].Type == InstructionType.PUSH)
-                {
-                    if (Instructions[pos].Arguments[0].Type == ArgType.STRING)
-                    {
-                        ProgramStrings.Add((Instructions[pos].Arguments[0].Value.Replace("\"", ""), pos));
+                        break;
                     }
                 }
                 ++pos;
             }
-        }
-        public void GetProgramDoubles()
-        {
-            int pos = 0;
-            while (pos < Instructions.Count)
+            Pos = pos;
+            int idxD = 0;
+            int idxI = 0;
+            if (func.Args == null)
             {
-                if (Instructions[pos].Type == InstructionType.PUSH)
+                func.Args = new();
+            }
+            foreach (var v in func.Args)
                 {
-                    if (Instructions[pos].Arguments[0].Type == ArgType.NUMBER)
+                    if (v.Type == VariableType.Number)
                     {
-                        ProgramDoubles.Add((double.Parse(Instructions[pos].Arguments[0].Value),pos));
+                        double d = PopNum();
+                        ArgsD.Add(d);
+                        ++idxD;
+                    }
+                    if (v.Type == VariableType.Str)
+                    {
+                        int i = PopI();
+                        ArgsI.Add(i);
+                        ++idxI;
+                    }
+                    if (v.Type == VariableType.List)
+                    {
+                        int i = PopI();
+                        ArgsI[idxI] = i;
+                        ++idxI;
+                        i = PopI();
+                        ArgsI[idxI] = i;
+                        ++idxI;
                     }
                 }
-                ++pos;
+        }
+        public void ReturnFromFunction()
+        {
+            Function f = new();
+            foreach (var func in Functions)
+            {
+                if (func.Name == CurrentFunction)
+                {
+                    f = func;
+                }
+            }
+            if (CallStack.Count == 0)
+            {
+                Pos = Instructions.Count + 1;
+                return;
+            }
+            CallStack.RemoveAt(CallStack.Count - 1);
+            var call = CallStack[CallStack.Count - 1];
+            CurrentFunction = call.Name;
+            ArgsD = call.ArgsD;
+            ArgsI = call.ArgsI;
+            Pos = call.Pos;
+            if (f.Type == VariableType.Number)
+            {
+                double d = PopNum();
+                Dreturn = d;
+            }
+            if (f.Type == VariableType.Str)
+            {
+                int i = PopI();
+                Ireturn = i;
             }
         }
-
+        public void Run()
+        {
+            for (int i = 0; i < Instructions.Count; ++i)
+            {
+                if (Current.Type == InstructionType.LABEL)
+                {
+                    if (Current.Arguments[0].Value == "main")
+                    {
+                        break;
+                    }
+                }
+                ++Pos;
+            }
+            CurrentFunction = "main";
+            while (Pos < Instructions.Count)
+            {
+                switch (Current.Type)
+                {
+                    case InstructionType.PUSH:
+                    {
+                            Push();
+                    } break;
+                    case InstructionType.ADD:
+                        {
+                            double a = PopNum();
+                            double b = PopNum();
+                            double res = a + b;
+                            byte[] bytes = BitConverter.GetBytes(res);
+                            PushBytes(bytes);
+                        }   break;
+                    case InstructionType.SUB:
+                        {
+                            double a = PopNum();
+                            double b = PopNum();
+                            double res = a - b;
+                            byte[] bytes = BitConverter.GetBytes(res);
+                            PushBytes(bytes);
+                        }   break;
+                    case InstructionType.MUL:
+                        {
+                            double a = PopNum();
+                            double b = PopNum();
+                            double res = a * b;
+                            byte[] bytes = BitConverter.GetBytes(res);
+                            PushBytes(bytes);
+                        }   break;
+                    case InstructionType.DIV:
+                        {
+                            double a = PopNum();
+                            double b = PopNum();
+                            double res = a / b;
+                            byte[] bytes = BitConverter.GetBytes(res);
+                            PushBytes(bytes);
+                        }   break;
+                    case InstructionType.CALL:
+                        {
+                            CallFunction();
+                        } break;
+                    case InstructionType.RETURN:
+                        {
+                            ReturnFromFunction();
+                        } break;
+                }
+                ++Pos;
+            }
+        }
+        public void StackDump()
+        {
+            Console.WriteLine("Stack:");
+            for (int i = stackPointer; i < 1024 * 1024; ++i)
+            {
+                Console.WriteLine($"{(1024*1024)-i}: {Stack[i]}");
+            }
+        }
     }
     public class Program
     {
@@ -371,6 +341,7 @@ namespace Cobweb{
         {
             System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
             System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
+            bool interpret = true;
             int i = 0;
             foreach (var arg in Args)
             {
@@ -382,6 +353,11 @@ namespace Cobweb{
                         return;
                     }
                     OutputFile = Args[i + 1];
+                    interpret = false;
+                }
+                else if (arg == "-i")
+                {
+                    interpret = true;
                 }
                 else
                 {
@@ -408,7 +384,7 @@ namespace Cobweb{
             Console.WriteLine(parser.Tree);
             // foreach (var F in preprocesser.Functions)
             // {
-                // Console.WriteLine(F);
+            // Console.WriteLine(F);
             // }
             Console.WriteLine("IL:");
             Console.WriteLine(generator.OutputSrc);
@@ -418,8 +394,20 @@ namespace Cobweb{
             {
                 Console.WriteLine(ins);
             }
-            Compiler compiler = new(bytecodeGenerator.Instructions, generator.Functions);
-            Console.WriteLine(compiler.CompiledSource);
+            if (!interpret)
+            {
+                Compiler compiler = new(bytecodeGenerator.Instructions, generator.Functions);
+                File.WriteAllText(OutputFile + ".asm", compiler.CompiledSource);
+                // Console.WriteLine(compiler.CompiledSource);
+            }
+            if (interpret)
+            {
+                Interpreter interpreter = new(bytecodeGenerator.Instructions, generator.Functions);
+                interpreter.Run();
+                interpreter.StackDump();
+                double d = interpreter.PopNum();
+                Console.WriteLine($"Return Value: {d}");
+            }
         }
     }
 }

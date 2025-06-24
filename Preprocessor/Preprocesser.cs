@@ -31,6 +31,68 @@ namespace Cobweb
                 }
             }
         }
+        public static VariableType PubGetExprType(Node n, List<Function> Functions)
+        {
+            foreach (var child in n.Children)
+            {
+                if (child.Type == NodeType.function_call)
+                {
+                    foreach (Function f in Functions)
+                    {
+                        if (f.Name == child.NodeToken.Data)
+                        {
+                            if (f.Type != VariableType.NoType)
+                            {
+                                return f.Type;
+                            }
+                        }
+                    }
+                }
+                if (child.Type == NodeType._if)
+                {
+                    return PubGetExprType(child.Children[1], Functions);
+                }
+                if (child.Type == NodeType.list_initializer)
+                {
+                    return VariableType.List;
+                }
+                if (child.Type == NodeType.literal)
+                {
+                    if (child.Children.Count > 0)
+                    {
+                        if (child.Children[0].Type == NodeType.index)
+                        {
+                            return VariableType.Number;
+                        }
+                    }
+                    switch (child.NodeToken.Type)
+                    {
+                        case TokenType.STRING:
+                            {
+                                return VariableType.Str;
+                            }
+                        case TokenType.ID:
+                            {
+                                return VariableType.NoType;
+                            }
+                        case TokenType.NUMBER:
+                            {
+                                return VariableType.Number;
+                            }
+                    }
+                }
+                if (child.Type == NodeType.binexpr)
+                {
+                    VariableType t = PubGetExprType(child.Children[0], Functions);
+                    if (t == VariableType.NoType)
+                    {
+                        return PubGetExprType(child.Children[1], Functions);
+                    }
+                    return t;
+                }
+            }
+            return VariableType.NoType;
+        }
         private VariableType GetExprType(Node n)
         {
             foreach (var child in n.Children)

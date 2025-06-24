@@ -126,10 +126,24 @@ namespace Cobweb{
                             {
                                 return new();   
                             }
+                            string arg1 = "";
+                            while (char.IsWhiteSpace(Current))
+                            {
+                                ++Position;
+                            }
+                            while (!char.IsWhiteSpace(Current))
+                            {
+                                arg1 += Current;
+                                ++Position;
+                            }
                             InstructionArgument argument = new();
                             argument.Type = ArgType.LABEL;
                             argument.Value = arg;
+                            InstructionArgument argument1 = new();
+                            argument1.Value = arg1;
+                            argument1.Type = ArgType.VAR_TYPE;
                             inst.Arguments.Add(argument);
+                            inst.Arguments.Add(argument1);
                             inst.Type = InstructionType.CONDITIONAL_JUMP;
                             return inst;
                         }

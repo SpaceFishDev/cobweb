@@ -174,8 +174,10 @@ namespace Cobweb{
                         Function f = findParentFunction(t);
                         res += $"{f.Name}_if_{IfIdx}:\n";
                         res += GenIl(t.Children[0]);
+                        var type = Preprocesser.PubGetExprType(t.Children[0], Functions);
                         res += $"cjmp ";
-                        res += $"{f.Name}_end_{IfIdx}\n";
+                        res += $"{f.Name}_end_{IfIdx} ";
+                        res += $"{type}\n";
                         res += $"{f.Name}_then_{IfIdx}:\n";
                         res += GenIl(t.Children[1]);
                         if (t.Children.Count > 2)
