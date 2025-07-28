@@ -1,0 +1,2 @@
+f fact x => if x < 2 then x else fact(x-1)*x
+f main => fact(4)
