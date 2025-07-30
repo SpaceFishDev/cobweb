@@ -1,135 +1,75 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
+#include "lexer.h"
 
-typedef struct
+char *get_fp(int argc, char **argv)
 {
-    int pos;
-    int line, column;
-    char *src;
-} lexer_t;
+    for (int i = 0; i < argc; ++i)
+    {
+        if (!strcmp(argv[i], "-i"))
+        {
+            ++i;
+            return argv[i];
+        }
+    }
+    return "main.cbw";
+}
+
+char *read_src(char *path)
+{
+    FILE *source = fopen(path, "rb");
+    uint64_t size = 0;
+    fseek(source, 0, SEEK_END);
+    size = ftell(source);
+    fseek(source, 0, SEEK_SET);
+    char *src = calloc(size + 1, 1);
+    uint64_t _ = fread(src, size, 1, source);
+    fclose(source);
+    return src;
+}
 
 typedef enum
 {
-    ID,
-    NUMBER,
-    MINUS,
-    PLUS,
-    DIVIDE,
-    MULTIPLY,
-    ARROW,
-    BOOLEQ,
-    BOOLNOTEQ,
-    NOT,
-    SQUARE_OPEN,
-    SQUARE_CLOSE,
-    BRACE_OPEN,
-    BRACE_CLOSE,
-    BOOLMORE,
-    BOOLLESS,
-    BOOLLESSEQ,
-    BOOLMOREEQ,
-    STRING,
-    COMMA,
-    END_OF_FILE
-} token_type;
+    NO_TYPE,
+} node_type;
+
+typedef struct node
+{
+    node_type type;
+    token_t token;
+    struct node *children;
+} node_t;
 
 typedef struct
 {
-    token_type type;
-    char *text;
-    int column, line;
-} token_t;
+    token_t *tokens;
+    uint64_t num_tok;
+    uint64_t pos;
+} parser_t;
 
-void lexer_next(lexer_t *lexer)
+#define PARSER_CURR (parser->tokens[parser->pos])
+#define NODE(type, token) ((node_t){type, token, 0})
+
+node_t parse()
 {
-    lexer->column++;
-    if (lexer->src[lexer->pos] == '\n')
-    {
-        lexer->line++;
-        lexer->column = 0;
-    }
-    lexer->pos++;
 }
 
-#define LEXER_CURR (lexer->src[lexer->pos])
-
-token_t lex(lexer_t *lexer)
+int main(int argc, char **argv)
 {
-    switch (LEXER_CURR)
+    char *path = get_fp(argc, argv);
+    char *src = read_src(path);
+    lexer_t lexer = LEXER(src);
+    token_t *tokens = calloc(1, sizeof(token_t));
+    token_t tok = lex(&lexer);
+    int i = 0;
+    while (true)
     {
-    case ' ':
-    case '\n':
-    case '\t':
-    {
-        lexer_next(lexer);
-        return lex(lexer);
-    }
-    case '-':
-    {
-        token_t res = (token_t){MINUS, "-", lexer->column, lexer->line};
-        lexer_next(lexer);
-        return res;
-    }
-    case '+':
-    {
-        token_t res = (token_t){PLUS, "+", lexer->column, lexer->line};
-        lexer_next(lexer);
-        return res;
-    }
-    case '*':
-    {
-        token_t res = (token_t){MULTIPLY, "*", lexer->column, lexer->line};
-        lexer_next(lexer);
-        return res;
-    }
-    case '/':
-    {
-        token_t res = (token_t){DIVIDE, "/", lexer->column, lexer->line};
-        lexer_next(lexer);
-        return res;
-    }
-    case '=':
-    {
-        lexer_next(lexer);
-        if (LEXER_CURR == '>')
+        printf("'%s': %d\n", tok.text, tok.type);
+        tokens[i] = tok;
+        tok = lex(&lexer);
+        ++i;
+        tokens = realloc(tokens, (i + 1) * sizeof(token_t));
+        if (tok.type == END_OF_FILE)
         {
-            token_t res = (token_t){ARROW, "=>", lexer->column, lexer->line};
-            lexer_next(lexer);
-            return res;
+            break;
         }
-        if (LEXER_CURR == '=')
-        {
-            token_t res = (token_t){BOOLEQ, "==", lexer->column, lexer->line};
-            lexer_next(lexer);
-            return res;
-        }
-        return lex(lexer);
     }
-    case '!':
-    {
-        lexer_next(lexer);
-        if (LEXER_CURR == '=')
-        {
-            token_t res = (token_t){BOOLNOTEQ, "!=", lexer->column, lexer->line};
-            lexer_next(lexer);
-            return res;
-        }
-        return lex(lexer);
-    }
-    case '>':
-    {
-        lexer_next(lexer);
-        if (LEXER_CURR == '=')
-        {
-            token_t res = (token_t){BOOLMOREEQ, ">=", lexer->column, lexer->line};
-            lexer_next(lexer);
-            return res;
-        }
-        return (token_t){BOOLMORE, ">", lexer->column, lexer->line};
-    }
-    }
-}
-int main(void)
-{
 }
