@@ -15,6 +15,7 @@ typedef struct
 
 typedef enum
 {
+    END_OF_FILE,
     ID,
     NUMBER,
     MINUS,
@@ -35,7 +36,6 @@ typedef enum
     BOOLMOREEQ,
     STRING,
     COMMA,
-    END_OF_FILE
 } token_type;
 
 typedef struct

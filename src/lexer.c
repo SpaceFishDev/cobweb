@@ -47,18 +47,18 @@ token_t lex_num(lexer_t *lexer)
     bool decimal = false;
     while (is_number(LEXER_CURR) || (!decimal && LEXER_CURR == '.'))
     {
-        lexer_next(lexer);
         if (LEXER_CURR == '.')
         {
             decimal = true;
         }
+        lexer_next(lexer);
     }
     int len = lexer->pos - p;
     lexer->pos = p;
     char *text = calloc(len + 1, 1);
     decimal = false;
     int i = 0;
-    while (is_number(LEXER_CURR) || (!decimal && LEXER_CURR == '.'))
+    while (i < len)
     {
         text[i] = LEXER_CURR;
         lexer_next(lexer);
@@ -104,6 +104,7 @@ token_t lex(lexer_t *lexer)
             ++i;
             lexer_next(lexer);
         }
+        return (token_t){STRING, text, lexer->column, lexer->line};
     }
     case '(':
     {
