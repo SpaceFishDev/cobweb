@@ -209,7 +209,8 @@ namespace Cobweb{
                         {
                             if (t.Children[0].Type == NodeType.index)
                             {
-                                return $"idx {t.Children[0].NodeToken.Data}\n";
+
+                                return $"push {t.NodeToken.Data}\nidx {t.Children[0].NodeToken.Data}\n";
                             }
                         }
                         if (t.NodeToken.Type == TokenType.STRING)

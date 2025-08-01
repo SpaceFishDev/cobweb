@@ -32,6 +32,7 @@ namespace Cobweb{
                     ProgramStrings.Add((i.Arguments[0].Value, pos));
                 } 
             }
+            MemPos = mempos;
             CurrentFunction = "";
         }
         public string CurrentFunction;
@@ -44,6 +45,7 @@ namespace Cobweb{
         public double Dreturn;
         public int Ireturn;
         public List<(string, int)> ProgramStrings;
+        int MemPos = 0;
         public Instruction Current
         {
             get
@@ -146,11 +148,18 @@ namespace Cobweb{
                             var bytes = BitConverter.GetBytes(value);
                             PushBytes(bytes);
                         }
-                        if (variable.Type == VariableType.Str)
+                        else if (variable.Type == VariableType.Str)
                         {
                             int value = ArgsI[Iidx];
                             var bytes = BitConverter.GetBytes(value);
                             PushBytes(bytes);
+                        }
+                        else if (variable.Type == VariableType.List)
+                        {
+                            int length = ArgsI[Iidx+1];
+                            int pos = ArgsI[Iidx];
+                            PushBytes(BitConverter.GetBytes(pos));
+                            PushBytes(BitConverter.GetBytes(length)); 
                         }
                     } break;
             } 
@@ -247,10 +256,10 @@ namespace Cobweb{
                 if (v.Type == VariableType.List)
                 {
                     int i = PopI();
-                    ArgsI[idxI] = i;
+                    ArgsI.Add(i);
                     ++idxI;
                     i = PopI();
-                    ArgsI[idxI] = i;
+                    ArgsI.Add(i);
                     ++idxI;
                 }
             }
@@ -287,6 +296,13 @@ namespace Cobweb{
             {
                 int i = PopI();
                 Ireturn = i;
+            }
+            if (f.Type == VariableType.List)
+            {
+                int length = PopI();
+                int pointer = PopI();
+                Ireturn = pointer;
+                Dreturn = (double)length;
             }
         }
         public void Run()
@@ -326,10 +342,110 @@ namespace Cobweb{
                         {
                             PushBytes(BitConverter.GetBytes(Ireturn));
                         }
+                        else if (func.Type == VariableType.List)
+                        {
+                            int pos = Ireturn;
+                            int length = (int)Dreturn;
+                            PushBytes(BitConverter.GetBytes(pos));
+                            PushBytes(BitConverter.GetBytes(length));
+                        }
                     }
                 }
                 switch (Current.Type)
                 {
+                    case InstructionType.INDEX:
+                        {
+                            if (Current.Arguments[0].Type == ArgType.NUMBER)
+                            {
+                                int length = PopI();
+                                int pos = PopI();
+                                int idx = int.Parse(Current.Arguments[0].Value);
+                                int n = 0;
+                                byte[] bytes = new byte[sizeof(double)];
+                                for (int i = pos + (idx*sizeof(double)); n < sizeof(double); ++i)
+                                {
+                                    bytes[n] = Memory[i];
+                                    ++n;
+                                }
+                                PushBytes(bytes);
+                            }
+                            if (Current.Arguments[0].Type == ArgType.VARIABLE)
+                            {
+                                int length = PopI();
+                                int pos = PopI();
+                                string vIdx = Current.Arguments[0].Value;
+                                Function f = new();
+                                foreach (var func in Functions)
+                                {
+                                    if (func.Name == CurrentFunction)
+                                    {
+                                        f = func;
+                                        break;
+                                    }
+                                }
+                                Variable v = new();
+                                int dIdx = 0;
+                                int iIdx = 0;
+                                foreach (var Var in f.Args)
+                                {
+                                    if (Var.Name == vIdx)
+                                    {
+                                        v = Var;
+                                        break;
+                                    }
+                                    if (Var.Type == VariableType.Number)
+                                    {
+                                        ++dIdx;
+                                    }
+                                }
+                                double d = ArgsD[dIdx];
+                                int dI = (int)d;
+                                int pos_real = pos + (dI * sizeof(double));
+                                byte[] bytes = new byte[sizeof(double)];
+                                int n = 0;
+                                for (int i = pos_real; n < sizeof(double); ++i)
+                                {
+                                    bytes[n] = Memory[i];
+                                    ++n;
+                                }
+                                PushBytes(bytes);
+                            }
+                        } break;
+                    case InstructionType.LIST_INIT:
+                        {
+                            int pos = MemPos;
+                            int len = 0;
+                            PushBytes(BitConverter.GetBytes(pos));
+                            PushBytes(BitConverter.GetBytes(len));
+                        } break;
+                    case InstructionType.LIST_EXPAND:
+                        {
+                            double d = PopNum();
+                            int length = PopI();
+                            int pos = PopI();
+                            MemPos += sizeof(double);
+                            length += sizeof(double);
+                            PushBytes(BitConverter.GetBytes(d));
+                            PushBytes(BitConverter.GetBytes(pos));
+                            PushBytes(BitConverter.GetBytes(length));
+                        } break;
+                    case InstructionType.LIST_APPEND:
+                        {
+                            int length = PopI();
+                            int pos = PopI();
+                            double v = PopNum();
+                            byte[] bytes = BitConverter.GetBytes(v);
+                            int i = 0;
+                            int pos_new = pos + (length*sizeof(double));
+                            pos_new -= sizeof(double);
+                            foreach (byte b in bytes)
+                            {
+                                Memory[pos_new + i] = bytes[i];
+                                ++i;
+                            }
+                            PushBytes(BitConverter.GetBytes(pos));
+                            PushBytes(BitConverter.GetBytes(length));
+                        } break;
                     case InstructionType.CMP_EQ:
                         {
                             double b = PopNum();

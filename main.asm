@@ -1,8 +1,8 @@
+bits 64
 section .data
 double_4: dq 2.0
-double_8: dq 1.0
 double_12: dq 1.0
-double_20: dq 5.0
+double_20: dq 4.0
 
 section .text
 global main
@@ -33,8 +33,8 @@ comisd xmm9, xmm8
 ja fact_end_0
 ; LABEL: [LABEL: fact_then_0],
 fact_then_0:
-; PUSH: [NUMBER: 1],
-movsd xmm8, qword [double_8]
+; PUSH: [VARIABLE: x],
+movsd xmm8, xmm0
 sub rsp, 8
 movsd [rsp], xmm8
 ; JMP: [LABEL: fact_end_1],
@@ -91,7 +91,7 @@ pop rbp
 ret
 ; LABEL: [LABEL: main],
 main:
-; PUSH: [NUMBER: 5],
+; PUSH: [NUMBER: 4],
 movsd xmm8, qword [double_20]
 sub rsp, 8
 movsd [rsp], xmm8

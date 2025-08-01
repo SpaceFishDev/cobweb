@@ -1,2 +1,2 @@
-f fib x => if x < 2 then x else x*fib(x-1) 
-f main => fib(3)
+f thing x y => x[y] 
+f main => thing([2 2 2 1 3] 3)

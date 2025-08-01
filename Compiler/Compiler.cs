@@ -8,7 +8,7 @@ namespace Cobweb{
         public List<(double, int)> ProgramDoubles;
         public string CurrentFunction;
         List<ArgumentDefinition> ArgumentDefinitions;
-        public string DataSection = "section .data\n";
+        public string DataSection = "bits 64\nsection .data\n";
         public string TextSection = "section .text\nglobal main\nextern malloc\nextern realloc\n";
         public Compiler(List<Instruction> instructions, List<Function> functions)
         {
@@ -113,12 +113,12 @@ namespace Cobweb{
                         {
                             case "Str":
                                 {
-                                    string result = $"mov r12, {elf64Args[regidx]}\nsub rsp, 8\nmov [rsp], r12\n";
+                                    string result = $"mov rax, {elf64Args[regidx]}\nsub rsp, 8\nmov [rsp], rax\n";
                                     return result;
                                 }
                             case "List":
                                 {
-                                    return $"mov r12, {elf64Args[regidx]}\nmov r13, {elf64Args[regidx + 1]}\nsub rsp, 8\nmov [rsp], r12\nsub rsp, 8\nmov [rsp], r13\n";
+                                    return $"mov rax, {elf64Args[regidx]}\nsub rsp, 8\nmov [rsp], rax\nmov rax, {elf64Args[regidx+1]}\nsub rsp, 8\nmov [rsp], rax\n";
                                 } 
                             case "Number":
                                 {

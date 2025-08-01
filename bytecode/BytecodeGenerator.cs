@@ -377,6 +377,21 @@ namespace Cobweb{
                                 ++Position;
                                 return inst;
                             }
+                            if (char.IsLetter(Current))
+                            {
+                                while (!char.IsWhiteSpace(Current))
+                                {
+                                    idx += Current;
+                                    ++Position;
+                                }
+                                InstructionArgument argument = new();
+                                argument.Type = ArgType.VARIABLE;
+                                argument.Value = idx;
+                                inst.Arguments.Add(argument);
+                                inst.Type = InstructionType.INDEX;
+                                ++Position;
+                                return inst;
+                            }
                             while (!char.IsWhiteSpace(Current))
                             {
                                 idx += Current;

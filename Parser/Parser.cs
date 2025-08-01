@@ -229,7 +229,7 @@ namespace Cobweb{
             {
                 return new();
             }
-            if (!Expect(TokenType.NUMBER))
+            if (!Expect(TokenType.NUMBER) && !Expect(TokenType.ID))
             {
                 return new();
             }

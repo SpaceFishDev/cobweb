@@ -1,2 +1,2 @@
-f fib x => if x < 2 then x else x*fib(x-1) 
-f main => fib(5) 
+f fact x => if x < 2 then x else fact(x-1)*x
+f main => fact(4)
